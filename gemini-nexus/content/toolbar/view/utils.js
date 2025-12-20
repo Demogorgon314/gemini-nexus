@@ -6,7 +6,7 @@
      * Shared Utility for Positioning Elements
      */
     window.GeminiViewUtils = {
-        positionElement: function(el, rect, isLargerWindow, isPinned, mousePoint, preferTop = false) {
+        positionElement: function(el, rect, isLargerWindow, isPinned, mousePoint) {
             // Do not reposition if pinned and already visible
             if (isPinned && el.classList.contains('visible')) return;
 
@@ -26,98 +26,76 @@
             }
 
             const padding = 10;
-            const offset = 12; // Gap between selection and toolbar
+            const offset = 12; // Gap between mouse/selection and toolbar
 
-            // Check if rect is valid (has dimensions)
-            const isValidRect = rect && rect.width > 0 && rect.height > 0;
-
-            // --- For Small Toolbar: Position relative to the selection rect ---
+            // Determine Anchor Point
+            // Prioritize Mouse Point for "Bottom Right of Mouse" style
             let anchorX, anchorY;
 
-            if (!isLargerWindow && isValidRect) {
-                // Use selection rect: center horizontally
-                anchorX = rect.left + (rect.width / 2);
-                // If preferTop, anchor to top of rect; otherwise anchor to bottom
-                anchorY = preferTop ? rect.top : rect.bottom;
-            } else if (mousePoint) {
+            if (mousePoint) {
                 anchorX = mousePoint.x;
                 anchorY = mousePoint.y;
-            } else if (isValidRect) {
+            } else if (rect) {
+                // Fallback to rect bottom-right if no mouse point provided
                 anchorX = rect.right;
-                anchorY = preferTop ? rect.top : rect.bottom;
+                anchorY = rect.bottom;
             } else {
                 anchorX = vw / 2;
                 anchorY = vh / 2;
             }
 
             // --- Calculate Visual Position (Top-Left corner of Element) ---
-            let visualLeft, visualTop;
 
-            if (!isLargerWindow && isValidRect) {
-                // Small Toolbar: Center horizontally
-                visualLeft = anchorX - (width / 2);
-                if (preferTop) {
-                    // Position ABOVE the rect
-                    visualTop = anchorY - height - offset;
-                    el.classList.remove('placed-bottom');
-                    el.classList.add('placed-top');
-                } else {
-                    // Position BELOW the rect
-                    visualTop = anchorY + offset;
-                    el.classList.remove('placed-top');
-                    el.classList.add('placed-bottom');
-                }
-            } else {
-                // Default Preference: Bottom-Right of Cursor
-                visualLeft = anchorX + offset;
-                visualTop = anchorY + offset;
-            }
+            // Default Preference: Bottom-Right of Cursor
+            let visualLeft = anchorX + offset;
+            let visualTop = anchorY + offset;
 
             // --- Horizontal Boundary Logic ---
             // If toolbar extends past right edge
             if (visualLeft + width > vw - padding) {
-                visualLeft = vw - width - padding; // Pin to right edge of screen
-            }
-            // If toolbar extends past left edge
-            if (visualLeft < padding) {
-                visualLeft = padding; // Pin to left edge of screen
+                // Flip to Left of Cursor
+                visualLeft = anchorX - width - offset;
+
+                // If flipping left pushes it off left screen (e.g. huge element or very left cursor)
+                if (visualLeft < padding) {
+                    visualLeft = vw - width - padding; // Pin to right edge of screen
+                }
             }
 
             // --- Vertical Boundary Logic ---
-            if (preferTop) {
-                // If preferTop and toolbar extends past top edge, flip to bottom
+            // If toolbar extends past bottom edge
+            if (visualTop + height > vh - padding) {
+                // Flip to Top of Cursor
+                visualTop = anchorY - height - offset;
+
+                // Update arrow classes for Small Toolbar
+                if (!isLargerWindow) {
+                    el.classList.remove('placed-bottom');
+                    el.classList.add('placed-top');
+                }
+
+                // If flipping top pushes it off top screen
                 if (visualTop < padding) {
-                    if (!isLargerWindow && isValidRect) {
-                        visualTop = rect.bottom + offset;
-                        el.classList.remove('placed-top');
-                        el.classList.add('placed-bottom');
-                    } else {
-                        visualTop = padding;
-                    }
+                    visualTop = vh - height - padding; // Pin to bottom edge of screen
                 }
             } else {
-                // If toolbar extends past bottom edge, flip to top
-                if (visualTop + height > vh - padding) {
-                    if (!isLargerWindow && isValidRect) {
-                        visualTop = rect.top - height - offset;
-                        el.classList.remove('placed-bottom');
-                        el.classList.add('placed-top');
-                    } else {
-                        visualTop = anchorY - height - offset;
-                    }
-
-                    // If flipping top pushes it off top screen
-                    if (visualTop < padding) {
-                        visualTop = vh - height - padding; // Pin to bottom edge of screen
-                    }
+                // Default: Placed Bottom
+                if (!isLargerWindow) {
+                    el.classList.remove('placed-top');
+                    el.classList.add('placed-bottom');
                 }
             }
 
             // --- Apply Coordinates ---
 
             if (!isLargerWindow) {
-                // Small Toolbar: Use left position directly (no transform centering needed now)
-                el.style.left = `${visualLeft + scrollX}px`;
+                // Small Toolbar: CSS has transform: translateX(-50%)
+                // So style.left needs to be the CENTER of the visual element.
+                // Center = VisualLeft + Width/2
+
+                const centerX = visualLeft + (width / 2);
+
+                el.style.left = `${centerX + scrollX}px`;
                 el.style.top = `${visualTop + scrollY}px`;
             } else {
                 // Ask Window: Fixed positioning, no transform centering.

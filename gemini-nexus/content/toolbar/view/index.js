@@ -12,7 +12,7 @@
             this.shadow = shadowRoot;
             this.elements = {};
             this.cacheElements();
-            
+
             // Initialize Sub-Views
             this.widgetView = new window.GeminiViewWidget(this.elements);
             this.windowView = new window.GeminiViewWindow(this.elements);
@@ -30,7 +30,7 @@
                 toolbar: get('toolbar'),
                 toolbarDragHandle: get('toolbar-drag-handle'),
                 imageBtn: get('image-btn'),
-                
+
                 // New Window Elements
                 askWindow: get('ask-window'),
                 askHeader: get('ask-header'),
@@ -40,12 +40,12 @@
                 resultArea: get('result-area'),
                 resultText: get('result-text'),
                 askModelSelect: get('ask-model-select'),
-                
+
                 // Footer Elements
                 windowFooter: get('window-footer'),
                 footerActions: get('footer-actions'),
                 footerStop: get('footer-stop'),
-                
+
                 // Buttons
                 buttons: {
                     copySelection: get('btn-copy'),
@@ -67,7 +67,7 @@
 
         // --- Delegation to Widget View ---
 
-        showToolbar(rect, mousePoint, preferTop = false) { this.widgetView.showToolbar(rect, mousePoint, preferTop); }
+        showToolbar(rect, mousePoint) { this.widgetView.showToolbar(rect, mousePoint); }
         hideToolbar() { this.widgetView.hideToolbar(); }
         showImageButton(rect) { this.widgetView.showImageButton(rect); }
         hideImageButton() { this.widgetView.hideImageButton(); }
@@ -78,7 +78,7 @@
 
         get isPinned() { return this.windowView.isPinned; }
         get isDocked() { return this.windowView.isDocked; }
-        
+
         togglePin() { return this.windowView.togglePin(); }
         showAskWindow(rect, contextText, title, resetDrag) { return this.windowView.show(rect, contextText, title, resetDrag); }
         hideAskWindow() { this.windowView.hide(); }
@@ -114,13 +114,7 @@
         // --- General ---
 
         isHost(target, host) {
-            // Check if target is the host element itself
-            if (target === host) return true;
-            // Check if target is inside the toolbar
-            if (this.elements.toolbar && this.elements.toolbar.contains(target)) return true;
-            // Check if target is inside the ask window
-            if (this.windowView.isHost(target)) return true;
-            return false;
+            return target === host || this.windowView.isHost(target);
         }
     }
 

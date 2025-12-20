@@ -50,13 +50,13 @@
             this._initRenderer(); // Initialize background renderer
             this._render();
             this._loadMathLibs();
-            
+
             // Initialize Sub-components
             this.view = new View(this.shadow);
-            
+
             // Init Drag Controller with Docking Logic
             this.dragController = new DragController(
-                this.view.elements.askWindow, 
+                this.view.elements.askWindow,
                 this.view.elements.askHeader,
                 {
                     onSnap: (side, top) => this.view.dockWindow(side, top),
@@ -290,7 +290,7 @@
 
         // --- Public API ---
 
-        show(rect, mousePoint, preferTop = false) {
+        show(rect, mousePoint) {
             // Skip repositioning if toolbar was dragged by user
             if (this.toolbarHasBeenDragged) {
                 // Just ensure it's visible, don't reposition
@@ -299,7 +299,7 @@
                 }
                 return;
             }
-            this.view.showToolbar(rect, mousePoint, preferTop);
+            this.view.showToolbar(rect, mousePoint);
         }
 
         hide() {
@@ -406,7 +406,7 @@
         showCopySelectionFeedback(success) {
              this.view.toggleCopySelectionIcon(success);
              setTimeout(() => {
-                 this.view.toggleCopySelectionIcon(null); 
+                 this.view.toggleCopySelectionIcon(null);
              }, 2000);
         }
 

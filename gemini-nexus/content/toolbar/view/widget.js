@@ -11,10 +11,10 @@
             this.elements = elements;
         }
 
-        showToolbar(rect, mousePoint, preferTop = false) {
+        showToolbar(rect, mousePoint) {
             if (!this.elements.toolbar) return;
             // Toolbar is never pinned, pass false
-            Utils.positionElement(this.elements.toolbar, rect, false, false, mousePoint, preferTop);
+            Utils.positionElement(this.elements.toolbar, rect, false, false, mousePoint);
             this.elements.toolbar.classList.add('visible');
         }
 
@@ -26,11 +26,11 @@
             if (!this.elements.imageBtn) return;
             const scrollX = window.scrollX || window.pageXOffset;
             const scrollY = window.scrollY || window.pageYOffset;
-            
+
             // Position: Top-Left of image (with 10px padding)
-            const left = rect.left + scrollX + 10; 
-            const top = rect.top + scrollY + 10; 
-            
+            const left = rect.left + scrollX + 10;
+            const top = rect.top + scrollY + 10;
+
             Object.assign(this.elements.imageBtn.style, { left: `${left}px`, top: `${top}px` });
             this.elements.imageBtn.classList.add('visible');
         }
