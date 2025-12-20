@@ -290,7 +290,7 @@
 
         // --- Public API ---
 
-        show(rect, mousePoint) {
+        show(rect, mousePoint, preferTop = false) {
             // Skip repositioning if toolbar was dragged by user
             if (this.toolbarHasBeenDragged) {
                 // Just ensure it's visible, don't reposition
@@ -299,7 +299,7 @@
                 }
                 return;
             }
-            this.view.showToolbar(rect, mousePoint);
+            this.view.showToolbar(rect, mousePoint, preferTop);
         }
 
         hide() {

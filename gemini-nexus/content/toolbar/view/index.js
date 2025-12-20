@@ -67,7 +67,7 @@
 
         // --- Delegation to Widget View ---
 
-        showToolbar(rect, mousePoint) { this.widgetView.showToolbar(rect, mousePoint); }
+        showToolbar(rect, mousePoint, preferTop = false) { this.widgetView.showToolbar(rect, mousePoint, preferTop); }
         hideToolbar() { this.widgetView.hideToolbar(); }
         showImageButton(rect) { this.widgetView.showImageButton(rect); }
         hideImageButton() { this.widgetView.hideImageButton(); }
@@ -114,7 +114,13 @@
         // --- General ---
 
         isHost(target, host) {
-            return target === host || this.windowView.isHost(target);
+            // Check if target is the host element itself
+            if (target === host) return true;
+            // Check if target is inside the toolbar
+            if (this.elements.toolbar && this.elements.toolbar.contains(target)) return true;
+            // Check if target is inside the ask window
+            if (this.windowView.isHost(target)) return true;
+            return false;
         }
     }
 
