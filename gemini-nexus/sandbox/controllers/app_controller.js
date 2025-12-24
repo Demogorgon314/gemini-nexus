@@ -42,8 +42,7 @@ export class AppController {
         this.ui.chat.togglePageContext(this.pageContextActive);
         
         if (this.pageContextActive) {
-            this.ui.updateStatus(t('pageContextEnabled'));
-            setTimeout(() => { if(!this.isGenerating) this.ui.updateStatus(""); }, 2000);
+            this._checkPageContent();
         }
     }
 
@@ -51,9 +50,13 @@ export class AppController {
         if (this.pageContextActive !== enable) {
             this.togglePageContext();
         } else if (enable) {
-            this.ui.updateStatus(t('pageContextActive'));
-            setTimeout(() => { if(!this.isGenerating) this.ui.updateStatus(""); }, 2000);
+            this._checkPageContent();
         }
+    }
+
+    _checkPageContent() {
+        this.ui.updateStatus(t('readingPage'));
+        sendToBackground({ action: "CHECK_PAGE_CONTEXT" });
     }
 
     toggleBrowserControl() {
@@ -198,6 +201,15 @@ export class AppController {
                 if (this.ui && this.ui.tabSelector) {
                     this.ui.tabSelector.updateTrigger(payload.tab);
                 }
+                return;
+            }
+            // Page Context Check Result
+            if (payload.action === 'PAGE_CONTEXT_RESULT') {
+                const len = payload.length;
+                const formatted = new Intl.NumberFormat().format(len);
+                const msg = t('pageReadSuccess').replace('{count}', formatted);
+                this.ui.updateStatus(msg);
+                setTimeout(() => { if(!this.isGenerating) this.ui.updateStatus(""); }, 3000);
                 return;
             }
             

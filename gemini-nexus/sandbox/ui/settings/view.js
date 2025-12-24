@@ -1,11 +1,36 @@
 
 // sandbox/ui/settings/view.js
+import { ConnectionSection } from './sections/connection.js';
+import { GeneralSection } from './sections/general.js';
+import { AppearanceSection } from './sections/appearance.js';
+import { ShortcutsSection } from './sections/shortcuts.js';
+import { AboutSection } from './sections/about.js';
 
 export class SettingsView {
     constructor(callbacks) {
         this.callbacks = callbacks || {};
         this.elements = {};
         
+        // Initialize Sections
+        this.connection = new ConnectionSection();
+        
+        this.general = new GeneralSection({
+            onTextSelectionChange: (val) => this.fire('onTextSelectionChange', val),
+            onImageToolsChange: (val) => this.fire('onImageToolsChange', val),
+            onSidebarBehaviorChange: (val) => this.fire('onSidebarBehaviorChange', val)
+        });
+        
+        this.appearance = new AppearanceSection({
+            onThemeChange: (val) => this.fire('onThemeChange', val),
+            onLanguageChange: (val) => this.fire('onLanguageChange', val)
+        });
+        
+        this.shortcuts = new ShortcutsSection();
+        
+        this.about = new AboutSection({
+            onDownloadLogs: () => this.fire('onDownloadLogs')
+        });
+
         this.queryElements();
         this.bindEvents();
     }
@@ -16,47 +41,13 @@ export class SettingsView {
         this.elements = {
             modal: get('settings-modal'),
             btnClose: get('close-settings'),
-            
-            themeSelect: get('theme-select'),
-            languageSelect: get('language-select'),
-            
-            // Connection
-            providerSelect: get('provider-select'),
-            apiKeyContainer: get('api-key-container'),
-            
-            // Official Fields
-            officialFields: get('official-fields'),
-            apiKeyInput: get('api-key-input'),
-            thinkingLevelSelect: get('thinking-level-select'),
-            
-            // OpenAI Fields
-            openaiFields: get('openai-fields'),
-            openaiBaseUrl: get('openai-base-url'),
-            openaiApiKey: get('openai-api-key'),
-            openaiModel: get('openai-model'),
-            
-            textSelectionToggle: get('text-selection-toggle'),
-            imageToolsToggle: get('image-tools-toggle'),
-            accountIndicesInput: get('account-indices-input'),
-            
-            inputQuickAsk: get('shortcut-quick-ask'),
-            inputOpenPanel: get('shortcut-open-panel'),
-            
             btnSave: get('save-shortcuts'),
-            btnReset: get('reset-shortcuts'),
-            
-            btnDownloadLogs: get('download-logs'),
-            
-            starEl: get('star-count'),
-            
-            sidebarRadios: document.querySelectorAll('input[name="sidebar-behavior"]')
+            btnReset: get('reset-shortcuts')
         };
     }
 
     bindEvents() {
-        const { modal, btnClose, btnSave, btnReset, themeSelect, languageSelect, 
-                inputQuickAsk, inputOpenPanel, textSelectionToggle, imageToolsToggle, 
-                sidebarRadios, btnDownloadLogs, providerSelect } = this.elements;
+        const { modal, btnClose, btnSave, btnReset } = this.elements;
 
         // Modal actions
         if (btnClose) btnClose.addEventListener('click', () => this.close());
@@ -69,50 +60,6 @@ export class SettingsView {
         // Action Buttons
         if (btnSave) btnSave.addEventListener('click', () => this.handleSave());
         if (btnReset) btnReset.addEventListener('click', () => this.handleReset());
-        
-        if (btnDownloadLogs) {
-            btnDownloadLogs.addEventListener('click', () => this.fire('onDownloadLogs'));
-        }
-
-        // Instant Updates
-        if (themeSelect) {
-            themeSelect.addEventListener('change', (e) => this.fire('onThemeChange', e.target.value));
-        }
-        if (languageSelect) {
-            languageSelect.addEventListener('change', (e) => this.fire('onLanguageChange', e.target.value));
-        }
-        
-        // Provider Logic
-        if (providerSelect) {
-            providerSelect.addEventListener('change', (e) => {
-                this.updateConnectionVisibility(e.target.value);
-            });
-        }
-
-        if (textSelectionToggle) {
-            textSelectionToggle.addEventListener('change', (e) => this.fire('onTextSelectionChange', e.target.value));
-        }
-        if (imageToolsToggle) {
-            imageToolsToggle.addEventListener('change', (e) => this.fire('onImageToolsChange', e.target.value));
-        }
-        if (sidebarRadios) {
-            sidebarRadios.forEach(radio => {
-                radio.addEventListener('change', (e) => {
-                    if(e.target.checked) this.fire('onSidebarBehaviorChange', e.target.value);
-                });
-            });
-        }
-
-        // Shortcuts
-        this.setupShortcutInput(inputQuickAsk);
-        this.setupShortcutInput(inputOpenPanel);
-
-        // System Theme Listener
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-             if (themeSelect && themeSelect.value === 'system') {
-                 this.applyVisualTheme('system');
-             }
-        });
 
         // Keyboard
         document.addEventListener('keydown', (e) => {
@@ -121,50 +68,18 @@ export class SettingsView {
             }
         });
     }
-    
-    updateConnectionVisibility(provider) {
-        const { apiKeyContainer, officialFields, openaiFields } = this.elements;
-        if (!apiKeyContainer) return;
-
-        if (provider === 'web') {
-            apiKeyContainer.style.display = 'none';
-        } else {
-            apiKeyContainer.style.display = 'flex';
-            if (provider === 'official') {
-                if (officialFields) officialFields.style.display = 'flex';
-                if (openaiFields) openaiFields.style.display = 'none';
-            } else if (provider === 'openai') {
-                if (officialFields) officialFields.style.display = 'none';
-                if (openaiFields) openaiFields.style.display = 'flex';
-            }
-        }
-    }
 
     handleSave() {
-        const { 
-            inputQuickAsk, inputOpenPanel, textSelectionToggle, imageToolsToggle, accountIndicesInput, 
-            providerSelect, apiKeyInput, thinkingLevelSelect, 
-            openaiBaseUrl, openaiApiKey, openaiModel
-        } = this.elements;
+        const shortcutsData = this.shortcuts.getData();
+        const connectionData = this.connection.getData();
+        const generalData = this.general.getData();
         
         const data = {
-            shortcuts: {
-                quickAsk: inputQuickAsk ? inputQuickAsk.value : null,
-                openPanel: inputOpenPanel ? inputOpenPanel.value : null,
-            },
-            connection: {
-                provider: providerSelect ? providerSelect.value : 'web',
-                // Official
-                apiKey: apiKeyInput ? apiKeyInput.value.trim() : "",
-                thinkingLevel: thinkingLevelSelect ? thinkingLevelSelect.value : "low",
-                // OpenAI
-                openaiBaseUrl: openaiBaseUrl ? openaiBaseUrl.value.trim() : "",
-                openaiApiKey: openaiApiKey ? openaiApiKey.value.trim() : "",
-                openaiModel: openaiModel ? openaiModel.value.trim() : ""
-            },
-            textSelection: textSelectionToggle ? textSelectionToggle.checked : true,
-            imageTools: imageToolsToggle ? imageToolsToggle.checked : true,
-            accountIndices: accountIndicesInput ? accountIndicesInput.value : "0"
+            shortcuts: shortcutsData,
+            connection: connectionData,
+            textSelection: generalData.textSelection,
+            imageTools: generalData.imageTools,
+            accountIndices: generalData.accountIndices
         };
         
         this.fire('onSave', data);
@@ -173,26 +88,6 @@ export class SettingsView {
 
     handleReset() {
         this.fire('onReset');
-    }
-
-    setupShortcutInput(inputEl) {
-        if (!inputEl) return;
-        inputEl.addEventListener('keydown', (e) => {
-            e.preventDefault(); e.stopPropagation();
-            if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
-            
-            const keys = [];
-            if (e.ctrlKey) keys.push('Ctrl');
-            if (e.altKey) keys.push('Alt');
-            if (e.shiftKey) keys.push('Shift');
-            if (e.metaKey) keys.push('Meta');
-            
-            let k = e.key.toUpperCase();
-            if (k === ' ') k = 'Space';
-            keys.push(k);
-
-            inputEl.value = keys.join('+');
-        });
     }
 
     // --- Public API ---
@@ -210,83 +105,57 @@ export class SettingsView {
         }
     }
 
+    // Delegation to Shortcuts
     setShortcuts(shortcuts) {
-        if (this.elements.inputQuickAsk) this.elements.inputQuickAsk.value = shortcuts.quickAsk;
-        if (this.elements.inputOpenPanel) this.elements.inputOpenPanel.value = shortcuts.openPanel;
+        this.shortcuts.setData(shortcuts);
     }
 
+    // Delegation to Appearance
     setThemeValue(theme) {
-        if (this.elements.themeSelect) this.elements.themeSelect.value = theme;
-        this.applyVisualTheme(theme);
+        this.appearance.setTheme(theme);
     }
 
     setLanguageValue(lang) {
-        if (this.elements.languageSelect) this.elements.languageSelect.value = lang;
-    }
-
-    setToggles(textSelection, imageTools) {
-        if (this.elements.textSelectionToggle) this.elements.textSelectionToggle.checked = textSelection;
-        if (this.elements.imageToolsToggle) this.elements.imageToolsToggle.checked = imageTools;
+        this.appearance.setLanguage(lang);
     }
     
-    setConnectionSettings(data) {
-        // Provider
-        if (this.elements.providerSelect) {
-            this.elements.providerSelect.value = data.provider || 'web';
-            this.updateConnectionVisibility(data.provider || 'web');
-        }
-        
-        // Official
-        if (this.elements.apiKeyInput) {
-            this.elements.apiKeyInput.value = data.apiKey || "";
-        }
-        if (this.elements.thinkingLevelSelect) {
-            this.elements.thinkingLevelSelect.value = data.thinkingLevel || "low";
-        }
-        
-        // OpenAI
-        if (this.elements.openaiBaseUrl) this.elements.openaiBaseUrl.value = data.openaiBaseUrl || "";
-        if (this.elements.openaiApiKey) this.elements.openaiApiKey.value = data.openaiApiKey || "";
-        if (this.elements.openaiModel) this.elements.openaiModel.value = data.openaiModel || "";
+    applyVisualTheme(theme) {
+        this.appearance.applyVisualTheme(theme);
     }
 
+    // Delegation to General
+    setToggles(textSelection, imageTools) {
+        this.general.setToggles(textSelection, imageTools);
+    }
+    
     setSidebarBehavior(behavior) {
-        if (this.elements.sidebarRadios) {
-            const val = behavior || 'auto';
-            this.elements.sidebarRadios.forEach(radio => {
-                radio.checked = (radio.value === val);
-            });
-        }
+        this.general.setSidebarBehavior(behavior);
     }
 
     setAccountIndices(val) {
-        if (this.elements.accountIndicesInput) this.elements.accountIndicesInput.value = val || "0";
+        this.general.setAccountIndices(val);
     }
 
-    applyVisualTheme(theme) {
-        let applied = theme;
-        if (theme === 'system') {
-             applied = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        }
-        document.documentElement.setAttribute('data-theme', applied);
+    // Delegation to Connection
+    setConnectionSettings(data) {
+        this.connection.setData(data);
     }
 
+    // Delegation to About
     displayStars(count) {
-        const { starEl } = this.elements;
-        if (!starEl) return;
-        
-        if (count) {
-            const formatted = count > 999 ? (count/1000).toFixed(1) + 'k' : count;
-            starEl.textContent = `★ ${formatted}`;
-            starEl.style.display = 'inline-flex';
-            starEl.dataset.fetched = "true";
-        } else {
-            starEl.style.display = 'none';
-        }
+        this.about.displayStars(count);
     }
 
     hasFetchedStars() {
-        return this.elements.starEl && this.elements.starEl.dataset.fetched === "true";
+        return this.about.hasFetchedStars();
+    }
+
+    getCurrentVersion() {
+        return this.about.getCurrentVersion();
+    }
+
+    displayUpdateStatus(latest, current, isUpdateAvailable) {
+        this.about.displayUpdateStatus(latest, current, isUpdateAvailable);
     }
 
     fire(event, data) {

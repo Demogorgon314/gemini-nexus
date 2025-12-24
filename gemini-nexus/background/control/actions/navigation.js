@@ -29,9 +29,23 @@ export class NavigationActions extends BaseActionHandler {
         return action || "Error: Invalid navigation arguments.";
     }
 
-    async newPage({ url }) {
+    async newPage({ url, background = false }) {
         const targetUrl = url || 'about:blank';
-        const tab = await chrome.tabs.create({ url: targetUrl });
+        let tab;
+
+        if (background) {
+            // Step 2: Create independent Worker window (popup) to avoid throttling and visual interference
+            const win = await chrome.windows.create({ 
+                url: targetUrl, 
+                type: 'popup', 
+                focused: false,
+                width: 1280,
+                height: 800 
+            });
+            tab = win.tabs[0];
+        } else {
+            tab = await chrome.tabs.create({ url: targetUrl });
+        }
         
         // Return object with metadata so ControlManager can update the locked tab
         return {
@@ -56,15 +70,16 @@ export class NavigationActions extends BaseActionHandler {
     }
 
     async selectPage({ index }) {
+        // Issue 01: Remove forced foreground switching
         const tabs = await chrome.tabs.query({ currentWindow: true });
         const tab = tabs[index];
         if (!tab) return `Error: Index ${index} not found.`;
         
-        await chrome.tabs.update(tab.id, { active: true });
+        // Removed: await chrome.tabs.update(tab.id, { active: true });
         
         // Return object with metadata so ControlManager can update the locked tab
         return {
-            output: `Switched to page ${index}: ${tab.title}`,
+            output: `Selected page ${index} (Background Mode): ${tab.title}`,
             _meta: { switchTabId: tab.id }
         };
     }

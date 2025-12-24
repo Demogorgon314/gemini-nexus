@@ -4,13 +4,12 @@
 export class NetworkCollector {
     constructor() {
         this.requests = new Map();
-        this.maxItems = 300; // Increased history for deeper debugging
+        this.maxItems = 300; 
     }
 
     onEvent(method, params) {
         if (method === 'Network.requestWillBeSent') {
             const { requestId, request, type, timestamp } = params;
-            // Filter out data URLs to save memory/tokens
             if (request.url.startsWith('data:')) return;
 
             this.requests.set(requestId, {
@@ -20,10 +19,6 @@ export class NetworkCollector {
                 type: type,
                 status: 'pending',
                 startTime: timestamp,
-                size: 0,
-                requestHeaders: request.headers,
-                postData: request.postData,
-                responseHeaders: null,
                 completed: false
             });
             this._prune();
@@ -33,14 +28,12 @@ export class NetworkCollector {
                 const req = this.requests.get(requestId);
                 req.status = response.status;
                 req.mimeType = response.mimeType;
-                req.responseHeaders = response.headers;
             }
         } else if (method === 'Network.loadingFinished') {
-            const { requestId, encodedDataLength } = params;
+            const { requestId } = params;
             if (this.requests.has(requestId)) {
                 const req = this.requests.get(requestId);
-                req.status = req.status === 'pending' ? 200 : req.status; // Assume 200 if responseReceived didn't fire (cached)
-                req.size = encodedDataLength;
+                req.status = req.status === 'pending' ? 200 : req.status;
                 req.completed = true;
             }
         } else if (method === 'Network.loadingFailed') {
@@ -53,6 +46,12 @@ export class NetworkCollector {
         }
     }
 
+    // Called when Main Frame navigates
+    onNavigation() {
+        this.requests.clear();
+        console.log("[NetworkCollector] Cleared requests due to navigation");
+    }
+
     _prune() {
         if (this.requests.size > this.maxItems) {
             const firstKey = this.requests.keys().next().value;
@@ -60,30 +59,24 @@ export class NetworkCollector {
         }
     }
 
-    // Used by get_network_activity (Legacy/Simple)
     getFormatted() {
         const output = [];
         const recent = Array.from(this.requests.values()).slice(-20);
         for (const req of recent) {
-            output.push(`[${req.method}] ${req.url} (${req.status}) - ${req.type}`);
+            output.push(`[${req.method}] ${req.url} (${req.status})`);
         }
         return output.join('\n');
     }
 
-    // New: Advanced List with filtering
     getList(resourceTypes, limit = 50) {
         let items = Array.from(this.requests.values());
-        
         if (resourceTypes && Array.isArray(resourceTypes) && resourceTypes.length > 0) {
             const allowed = resourceTypes.map(t => t.toLowerCase());
             items = items.filter(r => r.type && allowed.includes(r.type.toLowerCase()));
         }
-
-        // Return latest N, reversed (newest first)
         return items.slice(-limit).reverse();
     }
 
-    // New: Get specific request
     getRequest(requestId) {
         return this.requests.get(requestId);
     }
@@ -101,37 +94,29 @@ export class LogCollector {
             this._add({
                 type: entry.level,
                 text: entry.text,
-                source: entry.source,
-                timestamp: entry.timestamp
+                source: entry.source
             });
         } else if (method === 'Runtime.consoleAPICalled') {
-            const { type, args, timestamp } = params;
-            const text = args.map(a => a.value || a.description || (a.type === 'object' ? '[Object]' : '')).join(' ');
+            const { type, args } = params;
+            const text = args.map(a => a.value || a.description || '[Object]').join(' ');
             this._add({
                 type: type,
                 text: text,
-                source: 'console',
-                timestamp: timestamp
+                source: 'console'
             });
         } else if (method === 'Runtime.exceptionThrown') {
             const { exceptionDetails } = params;
             this._add({
                 type: 'error',
-                text: exceptionDetails.text + (exceptionDetails.exception ? ': ' + exceptionDetails.exception.description : ''),
-                source: 'runtime',
-                timestamp: Date.now()
-            });
-        } else if (method === 'Audits.issueAdded') {
-            const { issue } = params;
-            // Simplify issue details for the LLM
-            const details = JSON.stringify(issue.details);
-            this._add({
-                type: 'issue',
-                text: `${issue.code}: ${details}`,
-                source: 'audits',
-                timestamp: Date.now()
+                text: exceptionDetails.text,
+                source: 'runtime'
             });
         }
+    }
+
+    onNavigation() {
+        this.logs = [];
+        this._add({ type: 'info', text: 'Navigation occurred - logs cleared', source: 'system' });
     }
 
     _add(logEntry) {
@@ -154,14 +139,16 @@ export class DialogCollector {
     onEvent(method, params) {
         if (method === 'Page.javascriptDialogOpening') {
             this.activeDialog = {
-                type: params.type, // alert, confirm, prompt, beforeunload
-                message: params.message,
-                defaultPrompt: params.defaultPrompt,
-                url: params.url
+                type: params.type,
+                message: params.message
             };
         } else if (method === 'Page.javascriptDialogClosed') {
             this.activeDialog = null;
         }
+    }
+
+    onNavigation() {
+        this.activeDialog = null;
     }
 
     getFormatted() {
@@ -178,6 +165,15 @@ export class CollectorManager {
     }
 
     handleEvent(method, params) {
+        if (method === 'Page.frameNavigated') {
+            // Check if Main Frame (parentId is undefined for main frame)
+            if (!params.frame.parentId) {
+                this.network.onNavigation();
+                this.logs.onNavigation();
+                this.dialogs.onNavigation();
+            }
+        }
+
         if (method.startsWith('Network.')) {
             this.network.onEvent(method, params);
         }

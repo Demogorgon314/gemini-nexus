@@ -27,7 +27,7 @@ export class WaitForHelper {
             // Duration of no mutations to consider DOM stable
             stableDomFor: 100 * cpu,
             // Time to wait for a navigation to potentially start after an action
-            expectNavigationIn: 200 * cpu,
+            expectNavigationIn: 500 * cpu,
             // Max time to wait for navigation to complete
             navigation: 15000 * network 
         };
@@ -49,44 +49,82 @@ export class WaitForHelper {
         // Enable Page domain to receive navigation events
         await this.connection.sendCommand("Page.enable").catch(() => {});
 
-        let navStarted = false;
-        let navFinished = false;
-        
-        // Listener to detect navigation start and completion
-        const listener = (method, params) => {
-            if (method === 'Page.frameStartedNavigating' || method === 'Page.navigatedWithinDocument') {
-                navStarted = true;
-            }
-            if (method === 'Page.loadEventFired') {
-                navFinished = true;
-            }
-        };
-        this.connection.addListener(listener);
+        // 1. Setup Navigation Listener (Race Condition Handling)
+        // We start listening BEFORE the action to catch immediate transitions
+        const navigationStartedPromise = this._waitForNavigationStart();
 
         try {
-            // 1. Perform the Action
+            // 2. Perform the Action
             await actionFn();
 
-            // 2. Wait briefly to see if a navigation starts
-            // MCP uses specific timeout based on CPU multiplier
-            await new Promise(r => setTimeout(r, this.timeouts.expectNavigationIn));
+            // 3. Race: Did navigation start within the timeout window?
+            const navStarted = await navigationStartedPromise;
 
-            // 3. If navigation started, wait for it to finish (with timeout)
-            if (navStarted && !navFinished) {
-                const startTime = Date.now();
-                while (!navFinished && (Date.now() - startTime < this.timeouts.navigation)) {
-                    await new Promise(r => setTimeout(r, 100));
-                }
+            // 4. If navigation started, wait for it to finish
+            if (navStarted) {
+                await this._waitForLoadEvent();
             }
+
         } catch (e) {
             console.error("Error during action execution/waiting:", e);
             throw e;
-        } finally {
-            this.connection.removeListener(listener);
         }
 
-        // 4. Wait for DOM to settle (MutationObserver)
+        // 5. Wait for DOM to settle (MutationObserver)
         await this.waitForStableDOM();
+    }
+
+    _waitForNavigationStart() {
+        return new Promise(resolve => {
+            let timer = null;
+            
+            const listener = (method, params) => {
+                if (method === 'Page.frameStartedNavigating' || method === 'Page.navigatedWithinDocument') {
+                    cleanup();
+                    resolve(true);
+                }
+            };
+
+            const cleanup = () => {
+                this.connection.removeListener(listener);
+                if (timer) clearTimeout(timer);
+            };
+
+            this.connection.addListener(listener);
+
+            // If no navigation happens within the expected window, resolve false
+            timer = setTimeout(() => {
+                cleanup();
+                resolve(false);
+            }, this.timeouts.expectNavigationIn);
+        });
+    }
+
+    _waitForLoadEvent() {
+        return new Promise(resolve => {
+            let timer = null;
+            
+            const listener = (method, params) => {
+                // Wait for load event (lifecycle complete)
+                if (method === 'Page.loadEventFired') {
+                    cleanup();
+                    resolve(true);
+                }
+            };
+
+            const cleanup = () => {
+                this.connection.removeListener(listener);
+                if (timer) clearTimeout(timer);
+            };
+
+            this.connection.addListener(listener);
+
+            // Max wait for navigation to complete
+            timer = setTimeout(() => {
+                cleanup();
+                resolve(false); // Timed out, but proceed to DOM stability check anyway
+            }, this.timeouts.navigation);
+        });
     }
 
     /**

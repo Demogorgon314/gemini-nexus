@@ -23,6 +23,9 @@ export class BrowserConnection {
 
         // Global listener for CDP events
         chrome.debugger.onEvent.addListener(this._handleEvent.bind(this));
+        
+        // Monitor external detachments (e.g. user closed tab or clicked "Cancel" on infobar)
+        chrome.debugger.onDetach.addListener(this._onDebuggerDetached.bind(this));
     }
 
     _handleEvent(source, method, params) {
@@ -43,6 +46,21 @@ export class BrowserConnection {
             // 2. Pass to active listeners (e.g. WaitHelper)
             this.eventListeners.forEach(callback => callback(method, params));
         }
+    }
+
+    _onDebuggerDetached(source, reason) {
+        // If the browser detached our current session, clean up state immediately
+        if (this.currentTabId === source.tabId) {
+            // console.debug("[BrowserConnection] Debugger detached by browser:", reason);
+            this._cleanupState();
+        }
+    }
+
+    _cleanupState() {
+        this.attached = false;
+        this.currentTabId = null;
+        this.traceEvents = [];
+        this.onDetachCallbacks.forEach(cb => cb());
     }
 
     addListener(callback) {
@@ -101,6 +119,15 @@ export class BrowserConnection {
                         await this.sendCommand("Page.enable");
                         // Enable Audits for issues (CORS, mixed content, etc)
                         await this.sendCommand("Audits.enable");
+
+                        // Enable auto-attach for OOPIFs (Out-Of-Process Iframes)
+                        // This allows perceiving content in cross-origin frames like Stripe, Google Login, etc.
+                        // flatten: true is essential for chrome.debugger handling
+                        await this.sendCommand("Target.setAutoAttach", {
+                            autoAttach: true,
+                            waitForDebuggerOnStart: false,
+                            flatten: true
+                        });
                     } catch (e) {
                         console.warn("Failed to enable collection domains:", e);
                     }
@@ -115,10 +142,13 @@ export class BrowserConnection {
         if (!this.attached || !this.currentTabId) return;
         return new Promise((resolve) => {
             chrome.debugger.detach({ tabId: this.currentTabId }, () => {
-                this.attached = false;
-                this.currentTabId = null;
-                this.traceEvents = [];
-                this.onDetachCallbacks.forEach(cb => cb());
+                // IMPORTANT: Consume lastError to prevent "Unchecked runtime.lastError" 
+                // if the tab was already closed or detached externally.
+                if (chrome.runtime.lastError) {
+                    // console.debug("[BrowserConnection] Detach ignored:", chrome.runtime.lastError.message);
+                }
+                
+                this._cleanupState();
                 resolve();
             });
         });

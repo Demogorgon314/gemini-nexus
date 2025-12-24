@@ -82,6 +82,8 @@ export const translations = {
         "ocrPrompt": "Please OCR this image. Extract the text content exactly as is, without any explanation.",
         "screenshotTranslatePrompt": "Please extract the text from this image and translate it into English. Output ONLY the translation.",
         "loadingImage": "Loading image...",
+        "readingPage": "Reading page content...",
+        "pageReadSuccess": "Read page content (~{count} chars)",
         
         // Tooltips
         "toggleHistory": "Chat History",
@@ -188,6 +190,8 @@ export const translations = {
         "ocrPrompt": "请识别并提取这张图片中的文字 (OCR)。仅输出识别到的文本内容，不需要任何解释。",
         "screenshotTranslatePrompt": "请识别这张图片中的文字并将其翻译成中文。仅输出翻译后的内容。",
         "loadingImage": "正在加载图片...",
+        "readingPage": "正在读取网页内容...",
+        "pageReadSuccess": "已读取网页内容 (约 {count} 字)",
 
         // Tooltips
         "toggleHistory": "历史记录",

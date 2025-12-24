@@ -49,7 +49,7 @@ export class UIController {
         }
     }
 
-    // --- Dynamic Model List ---
+    // --- DynamicModel List ---
 
     updateModelList(settings) {
         if (!this.modelSelect) return;
@@ -69,11 +69,16 @@ export class UIController {
                 { val: 'gemini-3-pro-preview', txt: 'Gemini 3 Pro' }
             ];
         } else if (provider === 'openai') {
-            // OpenAI Compatible: Use single model ID from settings
-            const modelName = settings.openaiModel || "Custom Model";
-            opts = [
-                { val: 'openai_custom', txt: modelName }
-            ];
+            // OpenAI Compatible: Support multiple models comma-separated
+            const rawModels = settings.openaiModel || "";
+            // Split by comma, trim whitespace, remove empty entries
+            const models = rawModels.split(',').map(m => m.trim()).filter(m => m);
+            
+            if (models.length === 0) {
+                opts = [{ val: 'openai_custom', txt: 'Custom Model' }];
+            } else {
+                opts = models.map(m => ({ val: m, txt: m }));
+            }
         } else {
             // Web Client Models
             opts = [

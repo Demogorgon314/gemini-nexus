@@ -1,5 +1,6 @@
 
 // background/handlers/ui.js
+import { getActiveTabContent } from './session/utils.js';
 
 export class UIMessageHandler {
     constructor(imageHandler, controlManager) {
@@ -153,6 +154,16 @@ export class UIMessageHandler {
                     }
                 }
                 sendResponse({ status: "completed" });
+            })();
+            return true;
+        }
+        
+        // --- PAGE CONTEXT CHECK ---
+        if (request.action === "CHECK_PAGE_CONTEXT") {
+            (async () => {
+                const content = await getActiveTabContent();
+                const length = content ? content.length : 0;
+                sendResponse({ action: "PAGE_CONTEXT_RESULT", length: length });
             })();
             return true;
         }

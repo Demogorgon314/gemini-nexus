@@ -1,3 +1,4 @@
+
 (function() {
     window.GeminiStyles = window.GeminiStyles || {};
     window.GeminiStyles.PanelHeader = `
@@ -24,12 +25,17 @@
             font-weight: 600;
             font-size: 15px;
             color: #1f1f1f;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 120px;
         }
 
         .header-actions {
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-shrink: 0;
         }
 
         /* Model Selector in Header */
@@ -51,6 +57,10 @@
             line-height: 30px; /* Ensure vertical centering */
             box-sizing: border-box;
             text-align: center;
+            max-width: 140px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .ask-model-select:hover {
             background: #e9eef6;

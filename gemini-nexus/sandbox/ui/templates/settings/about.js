@@ -10,7 +10,11 @@ export const AboutSettingsTemplate = `
 
 <div class="setting-group">
     <h4 data-i18n="about">About</h4>
-    <p class="setting-info"><strong>Gemini Nexus</strong> v4.1.2</p>
+    <p class="setting-info">
+        <strong>Gemini Nexus</strong> 
+        <span id="app-current-version">v4.2.3</span>
+        <span id="app-update-status" style="font-size: 13px; margin-left: 8px; font-weight: normal;"></span>
+    </p>
     
     <div style="display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap;">
         <a href="https://github.com/yeahhe365/gemini-nexus" target="_blank" class="github-link" style="margin-top: 0;">

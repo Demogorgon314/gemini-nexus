@@ -41,8 +41,8 @@ export const ConnectionSettingsTemplate = `
                 <input type="password" id="openai-api-key" class="shortcut-input" style="width: 100%; text-align: left; box-sizing: border-box;" data-i18n-placeholder="apiKeyPlaceholder" placeholder="sk-...">
             </div>
             <div>
-                <label data-i18n="modelId" style="font-weight: 500; display: block; margin-bottom: 2px;">Model ID</label>
-                <input type="text" id="openai-model" class="shortcut-input" style="width: 100%; text-align: left; box-sizing: border-box;" data-i18n-placeholder="modelIdPlaceholder" placeholder="gpt-4o">
+                <label style="font-weight: 500; display: block; margin-bottom: 2px;">Model IDs (Comma separated)</label>
+                <input type="text" id="openai-model" class="shortcut-input" style="width: 100%; text-align: left; box-sizing: border-box;" placeholder="e.g. gpt-4o, claude-3-5-sonnet">
             </div>
         </div>
     </div>

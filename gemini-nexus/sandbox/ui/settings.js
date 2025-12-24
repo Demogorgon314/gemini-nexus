@@ -82,7 +82,7 @@ export class SettingsController {
         requestAccountIndicesFromStorage();
         requestConnectionSettingsFromStorage();
         
-        this.fetchGithubStars();
+        this.fetchGithubData();
     }
 
     saveSettings(data) {
@@ -214,17 +214,48 @@ export class SettingsController {
         this.view.setAccountIndices(this.accountIndices);
     }
 
-    async fetchGithubStars() {
+    async fetchGithubData() {
         if (this.view.hasFetchedStars()) return; 
 
         try {
-            const res = await fetch('https://api.github.com/repos/yeahhe365/gemini-nexus');
-            if (res.ok) {
-                const data = await res.json();
+            const [starRes, releaseRes] = await Promise.all([
+                fetch('https://api.github.com/repos/yeahhe365/gemini-nexus'),
+                fetch('https://api.github.com/repos/yeahhe365/gemini-nexus/releases/latest')
+            ]);
+
+            if (starRes.ok) {
+                const data = await starRes.json();
                 this.view.displayStars(data.stargazers_count);
             }
+
+            if (releaseRes.ok) {
+                const data = await releaseRes.json();
+                const latestVersion = data.tag_name; // e.g. "v4.2.0"
+                const currentVersion = this.view.getCurrentVersion() || "v0.0.0";
+                
+                const isNewer = this.compareVersions(latestVersion, currentVersion) > 0;
+                this.view.displayUpdateStatus(latestVersion, currentVersion, isNewer);
+            }
         } catch (e) {
+            console.warn("GitHub fetch failed", e);
             this.view.displayStars(null);
         }
+    }
+
+    compareVersions(v1, v2) {
+        // Remove 'v' prefix
+        const clean1 = v1.replace(/^v/, '');
+        const clean2 = v2.replace(/^v/, '');
+        
+        const parts1 = clean1.split('.').map(Number);
+        const parts2 = clean2.split('.').map(Number);
+        
+        for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+            const num1 = parts1[i] || 0;
+            const num2 = parts2[i] || 0;
+            if (num1 > num2) return 1;
+            if (num1 < num2) return -1;
+        }
+        return 0;
     }
 }

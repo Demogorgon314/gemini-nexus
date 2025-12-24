@@ -132,8 +132,24 @@
 
         showError(text) {
              if (!this.elements.askWindow) return;
-             if (this.elements.windowFooter) this.elements.windowFooter.classList.add('hidden');
-             this.elements.resultText.innerHTML = `<p style="color:#d93025; font-weight:500;">Error: ${text}</p>`;
+             
+             // Render Error UI with Retry hint
+             this.elements.resultText.innerHTML = `
+                <div style="padding: 12px 0; color: #d93025;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 600;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        <span>Error</span>
+                    </div>
+                    <div style="font-size: 14px; line-height: 1.5; color: #1f1f1f;">
+                        ${text}
+                    </div>
+                </div>
+             `;
+
+             // Show Footer with Actions (Retry is in footer-left)
+             if (this.elements.windowFooter) this.elements.windowFooter.classList.remove('hidden');
+             if (this.elements.footerStop) this.elements.footerStop.classList.add('hidden');
+             if (this.elements.footerActions) this.elements.footerActions.classList.remove('hidden');
         }
         
         toggleCopyIcon(success) {
