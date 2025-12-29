@@ -101,7 +101,7 @@ export class McpRemoteManager {
     this.clientName = clientName;
     this.clientVersion = clientVersion;
 
-    this.transport = null; // 'ws' | 'sse'
+    this.transport = null; // 'ws' | 'sse' | 'streamable-http'
 
     this.ws = null;
     this.configKey = null; // `${transport}:${url}`
@@ -117,6 +117,9 @@ export class McpRemoteManager {
     this.sseAbort = null;
     this.ssePostUrl = null;
     this.sseReaderTask = null;
+
+    // Streamable HTTP state
+    this.httpPostUrl = null;
   }
 
   isEnabled(config) {
@@ -148,6 +151,7 @@ export class McpRemoteManager {
     this.sseAbort = null;
     this.ssePostUrl = null;
     this.sseReaderTask = null;
+    this.httpPostUrl = null;
   }
 
   _clearIdleTimer() {
@@ -173,7 +177,11 @@ export class McpRemoteManager {
     }
   }
 
-  _sendRpc(method, params) {
+  async _sendRpc(method, params) {
+    if (this.transport === 'streamable-http') {
+      return await this._sendRpcStreamableHttp(method, params);
+    }
+
     if (this.transport === 'ws') {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
         throw new Error('MCP WebSocket not connected');
@@ -233,6 +241,16 @@ export class McpRemoteManager {
     if (this.transport === 'sse') {
       if (!this.ssePostUrl) return;
       fetch(this.ssePostUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(msg),
+      }).catch(() => {});
+      return;
+    }
+
+    if (this.transport === 'streamable-http') {
+      if (!this.httpPostUrl) return;
+      fetch(this.httpPostUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(msg),
@@ -336,7 +354,79 @@ export class McpRemoteManager {
       return;
     }
 
+    if (transport === 'streamable-http' || transport === 'streamablehttp') {
+      const httpUrl = asHttpUrl(config.mcpServerUrl);
+      if (!httpUrl) throw new Error('Invalid Streamable HTTP URL');
+      const key = `streamable-http:${httpUrl}`;
+
+      if (this.transport === 'streamable-http' && this.initialized && this.configKey === key && this.httpPostUrl) {
+        this._bumpIdleClose();
+        return;
+      }
+
+      await this.disconnect();
+      this.configKey = key;
+      this.transport = 'streamable-http';
+      this.httpPostUrl = httpUrl;
+
+      await this._initializeHandshake();
+      this._bumpIdleClose();
+      return;
+    }
+
     throw new Error(`Unsupported MCP transport: ${config.mcpTransport}`);
+  }
+
+  async _sendRpcStreamableHttp(method, params) {
+    if (!this.httpPostUrl) throw new Error('MCP Streamable HTTP not connected');
+
+    const id = this.nextId++;
+    const msg = {
+      jsonrpc: '2.0',
+      id,
+      method,
+      params: params || {},
+    };
+
+    const response = await fetch(this.httpPostUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(msg),
+    });
+
+    const text = await response.text();
+
+    if (!response.ok) {
+      throw new Error(`MCP Streamable HTTP error (${response.status}): ${text || response.statusText}`);
+    }
+
+    // Try JSON first (most common).
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && parsed.error) {
+        throw new Error(parsed.error.message || 'MCP error');
+      }
+      // Some servers return { jsonrpc, id, result }
+      if (parsed && parsed.result !== undefined) return parsed.result;
+      return parsed;
+    } catch {
+      // Fallback: try to parse the last JSON object in the response.
+      const trimmed = (text || '').trim();
+      const lastBrace = trimmed.lastIndexOf('}');
+      const firstBrace = trimmed.indexOf('{');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        const candidate = trimmed.slice(firstBrace, lastBrace + 1);
+        try {
+          const parsed = JSON.parse(candidate);
+          if (parsed && parsed.error) throw new Error(parsed.error.message || 'MCP error');
+          if (parsed && parsed.result !== undefined) return parsed.result;
+          return parsed;
+        } catch {}
+      }
+
+      // Last resort: treat as plain text result.
+      return { content: [{ type: 'text', text: trimmed }] };
+    }
   }
 
   async _connectSse(sseUrlStr) {

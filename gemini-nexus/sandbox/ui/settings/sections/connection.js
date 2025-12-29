@@ -29,6 +29,13 @@ export class ConnectionSection {
         };
     }
 
+    _getDefaultUrlForTransport(transport) {
+        const t = (transport || 'sse').toLowerCase();
+        if (t === 'ws' || t === 'websocket') return 'ws://127.0.0.1:3006/mcp';
+        if (t === 'streamable-http' || t === 'streamablehttp') return 'http://127.0.0.1:3006/mcp';
+        return 'http://127.0.0.1:3006/sse';
+    }
+
     queryElements() {
         const get = (id) => document.getElementById(id);
         this.elements = {
@@ -149,7 +156,29 @@ export class ConnectionSection {
 
         if (mcpServerName) mcpServerName.addEventListener('input', onEdit);
         if (mcpServerUrl) mcpServerUrl.addEventListener('input', onEdit);
-        if (mcpTransport) mcpTransport.addEventListener('change', onEdit);
+        if (mcpTransport) {
+            mcpTransport.addEventListener('change', () => {
+                const server = this._getActiveServer();
+                const prevTransport = server ? (server.transport || 'sse') : 'sse';
+                const nextTransport = mcpTransport.value || 'sse';
+
+                // Update placeholder to match transport.
+                if (mcpServerUrl) {
+                    mcpServerUrl.placeholder = this._getDefaultUrlForTransport(nextTransport);
+                }
+
+                // If URL is empty OR still equal to the previous transport default, swap to new default.
+                if (server && mcpServerUrl) {
+                    const currentUrl = (mcpServerUrl.value || '').trim();
+                    const prevDefault = this._getDefaultUrlForTransport(prevTransport);
+                    if (!currentUrl || currentUrl === prevDefault) {
+                        mcpServerUrl.value = this._getDefaultUrlForTransport(nextTransport);
+                    }
+                }
+
+                onEdit();
+            });
+        }
         if (mcpServerEnabled) mcpServerEnabled.addEventListener('change', onEdit);
 
         if (mcpToolMode) {
@@ -389,6 +418,7 @@ export class ConnectionSection {
         if (mcpServerName) mcpServerName.value = server.name || '';
         if (mcpTransport) mcpTransport.value = server.transport || 'sse';
         if (mcpServerUrl) mcpServerUrl.value = server.url || '';
+        if (mcpServerUrl) mcpServerUrl.placeholder = this._getDefaultUrlForTransport(server.transport || 'sse');
         if (mcpServerEnabled) mcpServerEnabled.checked = server.enabled !== false;
         if (mcpToolMode) mcpToolMode.value = server.toolMode === 'selected' ? 'selected' : 'all';
 

@@ -77,6 +77,7 @@ export const ConnectionSettingsTemplate = `
                 <label data-i18n="mcpTransport" style="font-weight: 500; display: block; margin-bottom: 2px;">Transport</label>
                 <select id="mcp-transport" class="shortcut-input" style="width: 100%; text-align: left; padding: 6px 12px;">
                     <option value="sse">SSE (http://.../sse)</option>
+                    <option value="streamable-http">Streamable HTTP (http://.../mcp)</option>
                     <option value="ws">WebSocket (ws://)</option>
                 </select>
             </div>
